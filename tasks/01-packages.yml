@@ -1,0 +1,17 @@
+---
+- name: Install required packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - postfix
+    - dovecot-core
+    - dovecot-imapd
+    - opendkim
+    - opendkim-tools
+    - certbot
+    - openssl
+    - nginx
+    - fail2ban
+    - dovecot-sieve

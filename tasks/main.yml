@@ -1,0 +1,14 @@
+---
+#tasks file for postfix
+- name: include 01-packages
+  include_tasks: 01-packages.yml
+
+- name: include 02-ssl
+  include_tasks: 02-ssl.yml
+  when: "{{ POSTFIX_USE_TLS }}"
+
+- name: include 03-configure
+  include_tasks: 03-configure.yml
+
+- name: include 04-users
+  include_tasks: 04-users.yml

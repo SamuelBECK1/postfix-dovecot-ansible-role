@@ -1,0 +1,13 @@
+[req]
+default_bits = 2048
+distinguished_name = dn
+prompt             = no
+
+[dn]
+C="{{ POSTFIX_CSR_DN_C}}"
+ST="{{ POSTFIX_CSR_DN_ST}}"
+L="{{ POSTFIX_CSR_DN_L}}"
+O="{{ POSTFIX_CSR_DN_O}}"
+OU="{{ POSTFIX_CSR_DN_OU}}"
+emailAddress="{{ POSTFIX_CSR_DN_EMAILADDRESS}}"
+CN="{{ POSTFIX_HOSTNAME }}"

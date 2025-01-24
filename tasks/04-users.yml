@@ -1,0 +1,7 @@
+---
+- name: create mail users
+  ansible.builtin.user:
+    name: "{{ item.USERNAME }}"
+    password: "{{ item.PASSWORD | password_hash('sha512') }}"
+    create_home: yes
+  loop: "{{ POSTFIX_USERS }}"

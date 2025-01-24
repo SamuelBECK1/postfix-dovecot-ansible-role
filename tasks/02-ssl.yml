@@ -1,0 +1,105 @@
+---
+- name: create tls directory
+  file:
+    path: "{{ POSTFIX_TLS_DIR }}"
+    state: directory
+    owner: postfix
+    group: postfix
+    mode: '0755'
+
+- name: create letsencrypt directory
+  file:
+    path: "/etc/letsencrypt"
+    state: directory
+    mode: '0755'
+
+- name: copy csr config file
+  template:
+    src: csr.conf.j2
+    dest: /tmp/csr.conf
+
+- name: check if key exists
+  stat:
+    path: "{{ POSTFIX_TLS_KEY_FILE }}"
+  register: key_exists
+  when:
+  - "{{ POSTFIX_TLS_USE_CERTBOT }}"
+
+- name: generate lestencrypt key
+  shell: openssl genrsa -out /etc/letsencrypt/account.key 2048
+ 
+- name: generate csr whit existing key
+  shell: openssl req -new -key {{ POSTFIX_TLS_KEY_FILE }} -out {{ POSTFIX_TLS_DIR }}/cert.csr -config /tmp/csr.conf
+  when:
+  - "{{ POSTFIX_TLS_USE_CERTBOT }}"
+  - key_exists.stat.exists
+
+- name: generate csr whitout existing key
+  shell: openssl req -nodes -new -newkey rsa:2048 -keyout {{ POSTFIX_TLS_KEY_FILE }} -out {{ POSTFIX_TLS_DIR }}/cert.csr -config /tmp/csr.conf
+  when:
+  - "{{ POSTFIX_TLS_USE_CERTBOT }}"
+  - not key_exists.stat.exists
+
+- name: Create a challenge for sample.com using a account key file.
+  acme_certificate:
+    account_key_src: /etc/letsencrypt/account.key
+    csr: "{{ POSTFIX_TLS_DIR }}/cert.csr"
+    dest: "{{ POSTFIX_TLS_CERT_FILE }}"
+    fullchain_dest: "{{ POSTFIX_TLS_CERT_FILE }}-fullchain"
+    terms_agreed: 1
+    acme_directory: https://acme-v02.api.letsencrypt.org/directory
+    acme_version: 2
+  register: acme_challenge
+
+- name: debug acme
+  debug:
+    var: acme_challenge
+
+- name: ensure challenge directory exists
+  file:
+    path: "/var/www/html/.well-known/acme-challenge"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: 0755
+  loop: "{{ acme_challenge.challenge_data | dict2items }}"
+  when: acme_challenge is changed
+
+- name: copy challenge
+  copy:
+    dest: "/var/www/html/{{ item.value['http-01']['resource'] }}"
+    content: "{{ item.value['http-01']['resource_value'] }}"
+    owner: www-data
+    group: www-data
+  loop: "{{ acme_challenge.challenge_data | dict2items }}"
+  when: acme_challenge is changed
+
+- name: validate challenge
+  acme_certificate:
+    account_key_src: /etc/letsencrypt/account.key
+    account_email: 
+    src: "{{ POSTFIX_TLS_DIR }}/cert.csr"
+    cert: "{{ POSTFIX_TLS_CERT_FILE }}"
+    fullchain: "{{ POSTFIX_TLS_CERT_FILE }}-fullchain"
+    chain: "{{ POSTFIX_TLS_CERT_FILE }}-intermediate"
+    challenge: http-01
+    acme_directory: https://acme-v02.api.letsencrypt.org/directory
+    remaining_days: 60
+    acme_version: 2
+    data: "{{ acme_challenge }}"
+  when: acme_challenge is changed
+
+- name: create postfix group
+  group:
+    name: postfixsyst
+
+- name: change ownership
+  file:
+    path: "{{ POSTFIX_TLS_DIR }}"
+    group: postfixsyst
+
+- name: change key owner
+  file:
+    path: "{{ POSTFIX_TLS_KEY_FILE }}"
+    mode: '0640'
+    

@@ -1,0 +1,42 @@
+---
+#POSTFIX VARIABLES
+POSTFIX_TLS_USE_CERTBOT: true
+POSTFIX_USE_TLS: true
+POSTFIX_TLS_DIR: /etc/postfix/tls
+POSTFIX_TLS_CERT_FILE: /etc/postfix/tls/cert.pem
+POSTFIX_TLS_KEY_FILE: /etc/postfix/tls/key.pem
+POSTFIX_TLS_CAPATH: /etc/ssl/certs
+POSTFIX_TLS_CERT_CONTENT: changeit
+POSTFIX_TLS_KEY_CONTENT: "{{ VAULT_POSTFIX_TLS_KEY | default('changeit') }}"
+POSTFIX_CSR_DN_C: FR
+POSTFIX_CSR_DN_ST: FR
+POSTFIX_CSR_DN_L: Paris
+POSTFIX_CSR_DN_O: TEST
+POSTFIX_CSR_DN_OU: Example
+POSTFIX_CSR_DN_EMAILADDRESS: test@example.com
+POSTFIX_DOMAIN: example.com
+POSTFIX_HOSTNAME: mail.example.com
+POSTFIX_PUBIP: 127.236.147.85
+POSTFIX_UNIX_LISTENER: /var/spool/postfix/private/auth 
+POSTFIX_SMTPD_MILTERS:
+  - inet:localhost:12301
+POSTFIX_NON_SMTPD_MILTERS:
+  - inet:localhost:12301
+POSTFIX_USERS:
+  - USERNAME: test
+    PASSWORD: test
+
+ 
+#DOVECOT RELATED VARIABLES
+DOVECOT_DISABLE_PLAINTEXT_AUTH: 'yes'
+DOVECOT_AUTH_MECHANISMS:
+  - 'plain'
+  - 'login'
+DOVECOT_SSL: 'required'
+DOVECOT_SSL_CERT: /etc/postfix/tls/cert.pem
+DOVECOT_SSL_KEY: /etc/postfix/tls/key.pem
+
+
+#OPENDKIM RELATED VARIABLES
+OPENDKIM_SOCKET: inet:12301@localhost
+OPENDKIM_SELECTOR: testmail

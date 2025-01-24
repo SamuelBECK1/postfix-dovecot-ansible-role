@@ -1,0 +1,117 @@
+---
+- name: add users in postfixsyst group
+  user:
+    name: "{{ item }}"
+    group: postfixsyst
+  loop: 
+    - opendkim
+    - postfix
+    - dovecot
+
+- name: set hostname
+  hostname:
+    name: "{{ POSTFIX_HOSTNAME }}"
+
+- name: create maildir skel
+  shell: |
+    maildirmake.dovecot /etc/skel/Maildir
+    maildirmake.dovecot /etc/skel/Maildir/.Drafts
+    maildirmake.dovecot /etc/skel/Maildir/.Sent
+    maildirmake.dovecot /etc/skel/Maildir/.Trash
+    maildirmake.dovecot /etc/skel/Maildir/.Templates
+
+- name: copy main.cf config file
+  template:
+    src: postfix/main.cf.j2
+    dest: /etc/postfix/main.cf
+    owner: postfix
+    group: postfix
+
+- name: copy postfix master.cf config file
+  template:
+    src: postfix/master.cf.j2
+    dest: /etc/postfix/master.cf
+    owner: postfix
+    group: postfix
+
+- name: copy dovecot configs
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop:
+    - src: dovecot/conf.d/10-auth.conf.j2
+      dest: /etc/dovecot/conf.d/10-auth.conf
+    - src: dovecot/conf.d/10-master.conf.j2
+      dest: /etc/dovecot/conf.d/10-master.conf     
+    - src: dovecot/conf.d/10-ssl.conf.j2
+      dest: /etc/dovecot/conf.d/10-ssl.conf     
+
+- name: copy opendkim config
+  template:
+    src: opendkim.conf.j2
+    dest: /etc/opendkim.conf
+    owner: opendkim
+    group: opendkim
+
+- name: update opendkim default file
+  lineinfile:
+    dest: /etc/default/opendkim
+    create: True
+    line: "SOCKET=\"{{ OPENDKIM_SOCKET }}\""
+    owner: opendkim
+
+- name: update dkim trusted hosts
+  lineinfile:
+    create: True
+    dest: /etc/opendkim/TrustedHosts
+    line: "*.{{ POSTFIX_DOMAIN }}"
+    owner: opendkim
+
+- name: update dkim keytable
+  lineinfile:
+    create: True
+    dest: /etc/opendkim/KeyTable
+    line: "{{ OPENDKIM_SELECTOR }}._domainkey.{{ POSTFIX_DOMAIN }} {{ POSTFIX_DOMAIN }}:{{ OPENDKIM_SELECTOR }}:/etc/opendkim/keys/{{ POSTFIX_DOMAIN }}/{{ OPENDKIM_SELECTOR }}.private"
+    owner: opendkim
+
+- name: create opendkim signing table
+  lineinfile:
+    create: True
+    dest: /etc/opendkim/SigningTable    
+    line: "*@{{ POSTFIX_DOMAIN }} {{ OPENDKIM_SELECTOR }}._domainkey.{{ POSTFIX_DOMAIN }}"
+    owner: opendkim
+
+- name: create opendkim keys dir
+  file:
+    path: "/etc/opendkim/keys/{{ POSTFIX_DOMAIN }}"
+    state: directory
+    owner: opendkim
+    group: opendkim
+
+- name: generate opendkim keys
+  shell: 
+    cmd: "opendkim-genkey -s {{ OPENDKIM_SELECTOR }} -d {{ POSTFIX_DOMAIN }}"
+    chdir: "/etc/opendkim/keys/{{ POSTFIX_DOMAIN }}"
+
+- name: set perms
+  file:
+    path: "/etc/opendkim/keys/{{ POSTFIX_DOMAIN }}"
+    owner: opendkim
+    group: opendkim
+    recurse: yes
+
+- name: restart postfix
+  systemd_service:
+    name: postfix
+    state: restarted
+
+- name: restart dovecot
+  systemd_service:
+    name: dovecot
+    state: restarted
+
+- name: restart opendkim
+  systemd_service:
+    name: opendkim
+    state: restarted
+
